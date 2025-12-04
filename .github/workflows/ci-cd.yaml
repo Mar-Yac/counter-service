@@ -1,0 +1,115 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: eu-west-2
+  ECR_REPOSITORY: counter-service
+  EKS_CLUSTER_NAME: nano-counter-eks
+  K8S_NAMESPACE: prod
+
+jobs:
+  # CI Job: Build Docker image and push to ECR
+  ci-build-push:
+    name: CI - Build and Push to ECR
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image-tag: ${{ github.sha }}
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-uri: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::630943284793:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        id: build
+        uses: aws-actions/amazon-ecr-build-and-push-image@v1
+        with:
+          repository: ${{ env.ECR_REPOSITORY }}
+          image-tag: ${{ github.sha }}
+          tags: ${{ github.sha }}
+
+      - name: Output image details
+        run: |
+          echo "Image pushed successfully to ECR"
+          echo "Image URI: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "Image Digest: ${{ steps.build.outputs.digest }}"
+
+  # CD Job: Update Helm values and trigger GitOps deployment via Argo CD
+  cd-deploy-gitops:
+    name: CD - Deploy via GitOps (Argo CD)
+    runs-on: ubuntu-latest
+    needs: ci-build-push
+    permissions:
+      contents: write
+    # This job only runs on a push to the 'main' branch, not on pull requests.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Helm values with new image tag
+        run: |
+          sed -i.bak "s/^  tag: .*/  tag: \"${{ needs.ci-build-push.outputs.image-tag }}\"/" helm/counter-service/values.yaml
+          rm helm/counter-service/values.yaml.bak
+          echo "Updated image tag to: ${{ needs.ci-build-push.outputs.image-tag }}"
+
+      - name: Install Helm
+        run: |
+          curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+
+      - name: Update Helm dependencies
+        run: |
+          helm dependency update helm/counter-service
+          echo "Helm dependencies updated successfully"
+
+      - name: Validate Helm chart
+        run: |
+          helm lint helm/counter-service
+          helm template helm/counter-service --debug > /dev/null
+          echo "Helm chart validation passed"
+
+      - name: Commit and push updated Helm values
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet helm/counter-service/values.yaml; then
+            echo "No changes to commit. Image tag already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add helm/counter-service/values.yaml
+          git commit -m "chore(cd): update counter-service image tag to ${{ needs.ci-build-push.outputs.image-tag }} [skip ci]"
+          git push origin "main"
+          echo "Pushed updated Helm values.yaml to trigger Argo CD sync"
+
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag**: \`${{ needs.ci-build-push.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image URI**: \`${{ needs.ci-build-push.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Helm values updated and pushed to Git" >> $GITHUB_STEP_SUMMARY
+          echo "- **Next Step**: Argo CD will automatically sync the deployment" >> $GITHUB_STEP_SUMMARY

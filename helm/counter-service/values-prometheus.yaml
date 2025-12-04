@@ -1,0 +1,32 @@
+# Example: Override values for kube-prometheus-stack subchart
+# This file shows how to pass values to the prometheus subchart
+# Usage: helm install counter-service . -f values.yaml -f values-prometheus.yaml
+
+prometheus:
+  prometheusOperator:
+    enabled: true
+  
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      retention: 30d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: gp3
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 50Gi
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+  
+  grafana:
+    enabled: true
+    adminUser: admin
+    adminPassword: admin
+    persistence:
+      enabled: true
+      storageClassName: gp3
+      size: 10Gi
+

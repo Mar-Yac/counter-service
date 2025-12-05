@@ -7,17 +7,17 @@ flask-limiter==3.5.0
 redis==5.0.1
 
 # Metrics and observability
-prometheus-client==0.19.0
+prometheus-client==0.18.0
 
 # OpenTelemetry SDK and instrumentation
-opentelemetry-api==1.22.0
-opentelemetry-sdk==1.22.0
-opentelemetry-instrumentation==0.43b0
-opentelemetry-instrumentation-flask==0.43b0
-opentelemetry-instrumentation-redis==0.43b0
-opentelemetry-instrumentation-requests==0.43b0
-opentelemetry-exporter-prometheus==1.22.0
-opentelemetry-exporter-otlp-proto-http==1.22.0
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation==0.60b0
+opentelemetry-instrumentation-flask==0.60b0
+opentelemetry-instrumentation-redis==0.60b0
+opentelemetry-instrumentation-requests==0.60b0
+opentelemetry-exporter-prometheus==0.60b0
+opentelemetry-exporter-otlp-proto-http
 
 # Structured logging
 python-json-logger==2.0.7

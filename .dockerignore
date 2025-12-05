@@ -1,0 +1,24 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+
+# Terraform
+infra/
+
+# GitHub Actions
+.github/
+
+# Virtual environment
+.venv/
+
+# Documentation
+README.md
+OPENTELEMETRY_SETUP.md
+REQUIREMENTS_SUMMARY.md
+
+# Other
+*.pyc
+__pycache__/

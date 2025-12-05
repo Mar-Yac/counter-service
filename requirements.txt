@@ -1,0 +1,23 @@
+# Web framework
+flask==3.0.0
+gunicorn==23.0.0
+flask-limiter==3.5.0
+
+# Redis client for persistence
+redis==5.0.1
+
+# Metrics and observability
+prometheus-client==0.18.0
+
+# OpenTelemetry SDK and instrumentation
+opentelemetry-api==1.39.0
+opentelemetry-sdk==1.39.0
+opentelemetry-instrumentation==0.60b0
+opentelemetry-instrumentation-flask==0.60b0
+opentelemetry-instrumentation-redis==0.60b0
+opentelemetry-instrumentation-requests==0.60b0
+opentelemetry-exporter-prometheus==0.60b0
+opentelemetry-exporter-otlp-proto-http==1.39.0
+
+# Structured logging
+python-json-logger==2.0.7

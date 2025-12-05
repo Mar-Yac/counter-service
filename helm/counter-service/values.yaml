@@ -1,0 +1,158 @@
+replicaCount: 2
+
+image:
+  repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/counter-service
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: counter-service
+  annotations:
+    # This annotation is required for the pod to assume the IAM role for reading secrets.
+    eks.amazonaws.com/role-arn: "arn:aws:iam::630943284793:role/counter-service-secrets-role"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    existingSecret: "redis-secret"
+    existingSecretPasswordKey: "password"
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: encrypted-gp3
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+  nameOverride: counter-redis
+
+redisConfig:
+  host: counter-redis-master
+  port: 6379
+  passwordFromFile: "/mnt/secrets/redis-password"
+  db: 0
+
+ingress:
+  enabled: false
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: DoNotSchedule
+
+namespace: prod
+
+networkPolicy:
+  enabled: false
+
+monitoring:
+  enabled: true
+  namespace: monitoring
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    labels:
+      app: counter-service
+      release: prometheus
+
+# Values for the kube-prometheus-stack subchart (aliased as 'prometheus')
+prometheus:
+  prometheusOperator:
+    enabled: true
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+  
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      retention: 30d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: encrypted-gp3
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 50Gi
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "2Gi"
+        limits:
+          cpu: "2000m"
+          memory: "4Gi"
+  
+  grafana:
+    enabled: true
+    adminUser: admin
+    adminPassword: admin
+    persistence:
+      enabled: true
+      storageClassName: encrypted-gp3
+      size: 10Gi
+    service:
+      type: ClusterIP
+      port: 3000
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+    dashboardConfigMap:
+      enabled: true
+
+secrets-store-csi-driver:
+  enabled: true
+  syncSecret:
+    enabled: true
+  providers:
+    aws:
+      enabled: true
+
+appSecrets:
+  enabled: true
+  providerName: "counter-service-secrets"
+  secretArn: "arn:aws:secretsmanager:eu-west-2:630943284793:secret:prod/redis/password-owHTAL"
+  k8sSecretName: "redis-secret"

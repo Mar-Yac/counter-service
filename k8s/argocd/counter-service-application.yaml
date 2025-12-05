@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/shainberg/counter-service.git
+    repoURL: https://github.com/Mar-Yac/counter-service.git
     targetRevision: main
     path: counter-service/helm/counter-service
     helm:

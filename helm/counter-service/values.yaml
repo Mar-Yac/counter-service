@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/counter-service
-  tag: "latest"
+  tag: "7c0e8668bdcbe3b88d64ea410594ba98555ed6fd"
   pullPolicy: IfNotPresent
 
 serviceAccount:

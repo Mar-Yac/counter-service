@@ -1,0 +1,94 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "51.9.0"
+    helm:
+      releaseName: prometheus-stack
+      values: |
+        # General settings for the monitoring stack
+        fullnameOverride: prometheus
+        namespaceOverride: monitoring
+
+        # Prometheus Configuration
+        prometheus:
+          prometheusSpec:
+            retention: 30d
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: encrypted-gp3
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 50Gi
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+
+        # Grafana Configuration
+        grafana:
+          namespaceOverride: monitoring
+          # Configure the Grafana Service Account for IRSA
+          serviceAccount:
+            create: true
+            name: "grafana"
+            annotations:
+              eks.amazonaws.com/role-arn: "arn:aws:iam::630943284793:role/grafana-secrets-role"
+          admin:
+            existingSecret: "grafana-admin-credentials"
+            userKey: admin-user
+            passwordKey: admin-password
+          persistence:
+            enabled: true
+            storageClassName: encrypted-gp3
+            size: 10Gi
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  hooks:
+  - type: PreSync
+    template: |
+      apiVersion: secrets-store.csi.x-k8s.io/v1
+      kind: SecretProviderClass
+      metadata:
+        name: grafana-admin-secrets-provider
+        namespace: monitoring
+      spec:
+        provider: aws
+        # Tell the CSI driver which Service Account to use for fetching the secret
+        serviceAccountName: "grafana"
+        parameters:
+          objects: |
+            - objectName: "arn:aws:secretsmanager:eu-west-2:630943284793:secret:prod/grafana/admin-GAfsHU"
+              objectType: "secretsmanager"
+              jmesPath:
+                - path: "username"
+                  objectAlias: admin-user
+                - path: "password"
+                  objectAlias: admin-password
+        secretObjects:
+        - secretName: grafana-admin-credentials
+          type: Opaque
+          data:
+          - key: admin-user
+            objectName: admin-user
+          - key: admin-password
+            objectName: admin-password

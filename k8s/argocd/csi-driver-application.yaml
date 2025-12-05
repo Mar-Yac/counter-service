@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-secrets-store-csi-driver
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    # Go back to the community chart which installs both the driver and provider
+    repoURL: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+    chart: secrets-store-csi-driver
+    # Use a newer, stable version of the chart
+    targetRevision: "1.3.4"
+    helm:
+      releaseName: csi-driver
+      values: |
+        # Explicitly enable the AWS provider
+        providers:
+          aws:
+            enabled: true
+        
+        # Enable secret rotation and sync
+        enableSecretRotation: true
+        syncSecret:
+          enabled: true
+
+        # Configure the Service Account for IRSA
+        serviceAccount:
+          create: true
+          name: "secrets-store-csi-driver" # This must match the role's trust policy
+          annotations:
+            eks.amazonaws.com/role-arn: "arn:aws:iam::630943284793:role/csi-driver-secrets-role"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

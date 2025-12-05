@@ -1,0 +1,92 @@
+replicaCount: 2
+
+image:
+  repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/counter-service
+  tag: "27d7ca2d9748452bee3430e27a1da71d0130293b"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: counter-service
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::630943284793:role/counter-service-secrets-role"
+
+# Configuration for the internal counter-service Service
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+# Configuration block for the Envoy proxy and its public-facing Service
+envoy:
+  # Controls whether the Envoy proxy and its service are deployed
+  enabled: true
+  service:
+    name: envoy-proxy
+    type: LoadBalancer
+    port: 80
+    targetPort: 10000
+    annotations:
+      # This annotation is critical for NLB health checks to work reliably.
+      service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: TCP
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    existingSecret: "redis-secret"
+    existingSecretPasswordKey: "password"
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: encrypted-gp3
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+  nameOverride: counter-redis
+
+redisConfig:
+  host: counter-redis-master
+  port: 6379
+  passwordFromFile: "/mnt/secrets/redis-password"
+  db: 0
+
+ingress:
+  enabled: false
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: DoNotSchedule
+
+namespace: prod
+
+networkPolicy:
+  enabled: false

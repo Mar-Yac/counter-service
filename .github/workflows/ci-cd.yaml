@@ -22,7 +22,7 @@ jobs:
       contents: read
     outputs:
       image-tag: ${{ github.sha }}
-      image-digest: ${{ steps.build.outputs.digest }}
+      # image-digest output is removed as it's not directly available from build-push-action in the same way
       image-uri: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
 
     steps:
@@ -39,19 +39,25 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to ECR
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image to ECR
         id: build
-        uses: aws-actions/amazon-ecr-build-and-push-image@v1
+        uses: docker/build-push-action@v5
         with:
-          repository: ${{ env.ECR_REPOSITORY }}
-          image-tag: ${{ github.sha }}
-          tags: ${{ github.sha }}
+          context: .
+          push: true
+          tags: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Output image details
         run: |
           echo "Image pushed successfully to ECR"
           echo "Image URI: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-          echo "Image Digest: ${{ steps.build.outputs.digest }}"
+          # Image Digest is not directly outputted by build-push-action in a simple way for now
+          # echo "Image Digest: ${{ steps.build.outputs.digest }}"
 
   # CD Job: Update Helm values and trigger GitOps deployment via Argo CD
   cd-deploy-gitops:

@@ -38,7 +38,7 @@ spec:
             driver: secrets-store.csi.k8s.io
             readOnly: true
             volumeAttributes:
-              secretProviderClass: {{ .Values.appSecrets.providerName | quote }}
+              secretProviderClass: "redis-secret-provider"
       containers:
         - name: counter-service
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

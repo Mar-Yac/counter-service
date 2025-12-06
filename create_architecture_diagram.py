@@ -9,8 +9,9 @@ from diagrams.k8s.compute import Pod
 from diagrams.onprem.ci import GithubActions
 from diagrams.onprem.vcs import Github
 from diagrams.onprem.monitoring import Grafana, Prometheus
-from diagrams.generic.database import SQL as Database
+from diagrams.onprem.inmemory import Redis
 
+# The 'direction' attribute sets the layout direction of the diagram. 'TB' means Top to Bottom.
 with Diagram("Counter Service - Full Architecture", show=False, filename="project_architecture", direction="TB"):
 
     # Define external actors and entry points
@@ -22,6 +23,7 @@ with Diagram("Counter Service - Full Architecture", show=False, filename="projec
         github_repo = Github("GitHub Repo")
         github_actions = GithubActions("Build & Test")
         ecr = ECR("ECR Image Registry")
+        # Define flow within the cluster
         github_repo >> github_actions >> ecr
 
     with Cluster("AWS Cloud"):
@@ -29,12 +31,12 @@ with Diagram("Counter Service - Full Architecture", show=False, filename="projec
 
     with Cluster("AWS EKS Cluster"):
         api_server = API("API Server")
-        argocd = GithubActions("ArgoCD")
+        argocd = GithubActions("ArgoCD") # Using GH Actions icon for GitOps tool
 
         with Cluster("App: counter-service (prod ns)"):
             counter_service = Pod("counter-service")
-            # Using the generic Database icon for Redis
-            redis_db = Database("Redis")
+            # Using the proper Redis icon from the correct module
+            redis_db = Redis("Redis")
             app_secret_provider = Node("SecretProviderClass (Redis)")
             redis_k8s_secret = Secret("redis-secret")
 
@@ -53,7 +55,7 @@ with Diagram("Counter Service - Full Architecture", show=False, filename="projec
         prometheus >> Edge(style="dashed", label="scrapes") >> counter_service
         prometheus >> grafana
 
-        # Secrets flow
+        # Secrets flow within the cluster
         csi_driver >> app_secret_provider >> redis_k8s_secret
         csi_driver >> mon_secret_provider >> grafana_k8s_secret
         counter_service >> Edge(style="dashed", label="mounts") >> redis_k8s_secret
@@ -70,4 +72,3 @@ with Diagram("Counter Service - Full Architecture", show=False, filename="projec
 
     user_traffic >> api_server
     secrets_manager >> Edge(style="dashed", label="fetches") >> csi_driver
-

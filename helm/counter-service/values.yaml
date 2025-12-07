@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/counter-service
-  tag: "5c069cd974eead333b47e5c78b990e6c3732b56b"
+  tag: "8f8a6c35593fe80baa2eb4a7c89508f2ace9865c"
   pullPolicy: IfNotPresent
 
 serviceAccount:
@@ -12,10 +12,24 @@ serviceAccount:
     # This annotation is required for the pod to assume the IAM role for reading secrets.
     eks.amazonaws.com/role-arn: "arn:aws:iam::630943284793:role/counter-service-secrets-role"
 
+# Configuration for the internal counter-service Service
 service:
   type: ClusterIP
   port: 80
   targetPort: 8000
+
+# Configuration block for the Envoy proxy and its public-facing Service
+envoy:
+  # Controls whether the Envoy proxy and its service are deployed
+  enabled: true
+  service:
+    name: envoy-proxy
+    type: LoadBalancer
+    port: 80
+    targetPort: 10000
+    annotations:
+      # This annotation is critical for NLB health checks to work reliably.
+      service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: TCP
 
 resources:
   requests:

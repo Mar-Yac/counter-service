@@ -1,3 +1,4 @@
+# This Service exposes the counter-service pods internally within the cluster.
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,22 +12,3 @@ spec:
       protocol: TCP
   selector:
     app: counter-service
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: envoy-proxy
-  namespace: {{ .Values.namespace }}
-  annotations:
-    # This annotation is critical for NLB health checks to work reliably.
-    # It tells the AWS Load Balancer Controller to use a TCP health check
-    # instead of the default HTTP check, which often fails.
-    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: TCP
-spec:
-  type: LoadBalancer
-  ports:
-    - port: 80
-      targetPort: 10000
-      protocol: TCP
-  selector:
-    app: envoy

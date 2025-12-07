@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.envoy.service.name }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    # Render all annotations from the values file
+    {{- toYaml .Values.envoy.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.envoy.service.type }}
+  ports:
+    - port: {{ .Values.envoy.service.port }}
+      targetPort: {{ .Values.envoy.service.targetPort }}
+      protocol: TCP
+  selector:
+    app: envoy

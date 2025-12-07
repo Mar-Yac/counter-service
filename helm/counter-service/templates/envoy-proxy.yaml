@@ -9,7 +9,7 @@ data:
       listeners:
       - name: listener_0
         address:
-          socket_address: { address: 0.0.0.0, port_value: 10000 } # Changed to 10000 to match values.yaml
+          socket_address: { address: 0.0.0.0, port_value: 10000 }
         filter_chains:
         - filters:
           - name: envoy.filters.network.http_connection_manager
@@ -25,12 +25,9 @@ data:
                   - match: { prefix: "/" }
                     route: { cluster: counter_service_cluster }
               http_filters:
-              # --- CORRECTED SECTION ---
-              # The v3 API requires an explicit typed_config for the router.
               - name: envoy.filters.http.router
                 typed_config:
                   "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-              # -------------------------
       clusters:
       - name: counter_service_cluster
         connect_timeout: 0.25s

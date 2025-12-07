@@ -36,13 +36,17 @@ module "eks" {
     }
   }
 
+  cluster_upgrade_policy = {
+  support_type = "STANDARD"
+  }
+
   eks_managed_node_groups = {
     default = {
       min_size     = 2
       max_size     = 5
       desired_size = 2
 
-      instance_types = ["t3.small"]
+      instance_types = ["t3.medium"]
       disk_size      = 20
       capacity_type  = "ON_DEMAND"
 

@@ -1,0 +1,96 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "51.9.0"
+    helm:
+      releaseName: prometheus-stack
+      values: |
+        # General settings for the monitoring stack
+        fullnameOverride: prometheus
+        namespaceOverride: monitoring
+
+        # Prometheus Configuration
+        prometheus:
+          prometheusSpec:
+            retention: 30d
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: encrypted-gp3
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 50Gi
+            # Scrape configs for your app will be handled by ServiceMonitors
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+
+        # Grafana Configuration
+        grafana:
+          namespaceOverride: monitoring
+          # Use a K8s secret for the admin password instead of plaintext
+          admin:
+            existingSecret: "grafana-admin-credentials"
+            userKey: admin-user
+            passwordKey: admin-password
+          persistence:
+            enabled: true
+            storageClassName: encrypted-gp3
+            size: 10Gi
+          # Add any Grafana dashboards here if needed
+          # dashboards:
+          #   default:
+          #     my-dashboard:
+          #       gnetId: 1860 # Example: Node Exporter Full
+          #       revision: 25
+          #       datasource: Prometheus
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  # --- This section creates the SecretProviderClass and syncs the secret ---
+  # This is a hook to create the resources needed by Grafana before it starts
+  hooks:
+  - type: PreSync
+    template: |
+      apiVersion: secrets-store.csi.x-k8s.io/v1
+      kind: SecretProviderClass
+      metadata:
+        name: grafana-admin-secrets-provider
+        namespace: monitoring
+      spec:
+        provider: aws
+        parameters:
+          objects: |
+            - objectName: "arn:aws:secretsmanager:eu-west-2:630943284793:secret:prod/grafana/admin-GAfsHU"
+              objectType: "secretsmanager"
+              jmesPath:
+                - path: "username" # Assuming your secret has a 'username' key
+                  objectAlias: admin-user
+                - path: "password" # Assuming your secret has a 'password' key
+                  objectAlias: admin-password
+        secretObjects:
+        - secretName: grafana-admin-credentials
+          type: Opaque
+          data:
+          - key: admin-user
+            objectName: admin-user
+          - key: admin-password
+            objectName: admin-password

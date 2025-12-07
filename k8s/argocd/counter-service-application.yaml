@@ -3,13 +3,19 @@ kind: Application
 metadata:
   name: counter-service
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:
+    # Pointing to the Helm chart within this Git repository
     repoURL: https://github.com/Mar-Yac/counter-service.git
     targetRevision: main
-    path: counter-service/helm/counter-service
+    path: helm/counter-service
     helm:
+      releaseName: counter-service
       valueFiles:
         - values.yaml
   destination:
@@ -17,9 +23,33 @@ spec:
     namespace: prod
   syncPolicy:
     automated:
-      selfHeal: true
       prune: true
+      selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-
-
+      - CreateNamespace=true # The 'prod' namespace needs to be created
+  # --- This section creates the SecretProviderClass for Redis ---
+  hooks:
+  - type: PreSync
+    template: |
+      apiVersion: secrets-store.csi.x-k8s.io/v1
+      kind: SecretProviderClass
+      metadata:
+        name: redis-secret-provider
+        namespace: prod
+      spec:
+        provider: aws
+        # This service account needs permissions to get the secret
+        serviceAccountName: counter-service 
+        parameters:
+          objects: |
+            - objectName: "arn:aws:secretsmanager:eu-west-2:630943284793:secret:prod/redis/password-owHTAL"
+              objectType: "secretsmanager"
+              jmesPath:
+                - path: "password"
+                  objectAlias: password
+        secretObjects:
+        - secretName: redis-secret
+          type: Opaque
+          data:
+          - key: password
+            objectName: password

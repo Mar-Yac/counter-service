@@ -36,6 +36,10 @@ module "eks" {
     }
   }
 
+  cluster_upgrade_policy = {
+  support_type = "STANDARD"
+  }
+
   eks_managed_node_groups = {
     default = {
       min_size     = 2

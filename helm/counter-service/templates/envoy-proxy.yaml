@@ -9,7 +9,7 @@ data:
       listeners:
       - name: listener_0
         address:
-          socket_address: { address: 0.0.0.0, port_value: 8080 }
+          socket_address: { address: 0.0.0.0, port_value: 10000 } # Changed to 10000 to match values.yaml
         filter_chains:
         - filters:
           - name: envoy.filters.network.http_connection_manager
@@ -23,39 +23,27 @@ data:
                   domains: ["*"]
                   routes:
                   - match: { prefix: "/" }
-                    route: { cluster: counter_service }
+                    route: { cluster: counter_service_cluster }
               http_filters:
+              # --- CORRECTED SECTION ---
+              # The v3 API requires an explicit typed_config for the router.
               - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+              # -------------------------
       clusters:
-      - name: counter_service
+      - name: counter_service_cluster
         connect_timeout: 0.25s
         type: STRICT_DNS
         dns_lookup_family: V4_ONLY
         lb_policy: ROUND_ROBIN
         load_assignment:
-          cluster_name: counter_service
+          cluster_name: counter_service_cluster
           endpoints:
           - lb_endpoints:
             - endpoint:
                 address:
                   socket_address:
-                    address: counter-service
+                    # Use the full Kubernetes DNS name for reliable service discovery
+                    address: counter-service.{{ .Values.namespace }}.svc.cluster.local
                     port_value: {{ .Values.service.port }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: envoy-proxy
-  namespace: {{ .Values.namespace | default "default" }}
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
-spec:
-  type: LoadBalancer
-  selector:
-    app: envoy-proxy
-  ports:
-    - name: http
-      port: 80
-      targetPort: 8080
-      protocol: TCP

@@ -6,7 +6,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
@@ -46,13 +46,23 @@ spec:
               eks.amazonaws.com/role-arn: "arn:aws:iam::630943284793:role/grafana-secrets-role"
           admin:
             existingSecret: "grafana-admin-credentials"
-            userKey: admin-user
-            passwordKey: admin-password
+            userKey: username
+            passwordKey: password
           persistence:
             enabled: true
             storageClassName: encrypted-gp3
             size: 10Gi
-
+          extraVolumes:
+            - name: grafana-secrets-store-inline
+              csi:
+                driver: secrets-store.csi.k8s.io
+                readOnly: true
+                volumeAttributes:
+                  secretProviderClass: "grafana-admin-secrets-provider"
+          extraVolumeMounts:
+            - name: grafana-secrets-store-inline
+              mountPath: "/mnt/grafana-secrets" # Mount point inside the Grafana pod
+              readOnly: true
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -63,32 +73,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-  hooks:
-  - type: PreSync
-    template: |
-      apiVersion: secrets-store.csi.x-k8s.io/v1
-      kind: SecretProviderClass
-      metadata:
-        name: grafana-admin-secrets-provider
-        namespace: monitoring
-      spec:
-        provider: aws
-        # Tell the CSI driver which Service Account to use for fetching the secret
-        serviceAccountName: "grafana"
-        parameters:
-          objects: |
-            - objectName: "arn:aws:secretsmanager:eu-west-2:630943284793:secret:prod/grafana/admin-GAfsHU"
-              objectType: "secretsmanager"
-              jmesPath:
-                - path: "username"
-                  objectAlias: admin-user
-                - path: "password"
-                  objectAlias: admin-password
-        secretObjects:
-        - secretName: grafana-admin-credentials
-          type: Opaque
-          data:
-          - key: admin-user
-            objectName: admin-user
-          - key: admin-password
-            objectName: admin-password

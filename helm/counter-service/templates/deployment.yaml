@@ -39,6 +39,9 @@ spec:
             readOnly: true
             volumeAttributes:
               secretProviderClass: "redis-secret-provider"
+        # Define a writable temporary volume
+        - name: tmp-volume
+          emptyDir: {}
       containers:
         - name: counter-service
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -58,6 +61,9 @@ spec:
             - name: secrets-store-inline
               mountPath: "/mnt/secrets"
               readOnly: true
+            # Mount the writable volume to /tmp
+            - name: tmp-volume
+              mountPath: "/tmp"
           readinessProbe:
             httpGet:
               path: /health

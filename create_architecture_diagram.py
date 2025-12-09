@@ -44,7 +44,7 @@ with Diagram("Counter Service - Full Architecture", show=False, filename="projec
             prometheus = Prometheus("Prometheus")
             grafana = Grafana("Grafana")
             mon_secret_provider = Node("SecretProviderClass (Grafana)")
-            grafana_k8s_secret = Secret("grafana-admin-credentials")
+            grafana_k8s_secret = Secret("admin")
 
         with Cluster("Infra: csi-driver (kube-system ns)"):
             csi_driver = Node("AWS Secrets Store CSI Driver")

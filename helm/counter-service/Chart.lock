@@ -2,11 +2,5 @@ dependencies:
 - name: redis
   repository: https://charts.bitnami.com/bitnami
   version: 24.0.0
-- name: kube-prometheus-stack
-  repository: https://prometheus-community.github.io/helm-charts
-  version: 59.1.0
-- name: secrets-store-csi-driver
-  repository: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
-  version: 1.5.4
-digest: sha256:ae557adab7b487320219f4f005b5f116b8b91c750d2c2699349df752377bb58a
-generated: "2025-12-04T14:30:08.601924+02:00"
+digest: sha256:45510857434d769b310d26dbff3d0d93a55fef2cbc154ff266ef9160c691c0a4
+generated: "2025-12-09T12:28:01.725185+02:00"

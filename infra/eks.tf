@@ -119,7 +119,7 @@ module "eks" {
   }
 
   eks_managed_node_groups = {
-    main-ng = {
+    service-counter-ng = {
       min_size     = 3
       max_size     = 6
       desired_size = 3

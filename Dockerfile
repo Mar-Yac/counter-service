@@ -34,4 +34,5 @@ USER app
 EXPOSE 8000
 
 # Use Gunicorn as the WSGI server
-CMD ["gunicorn", "--config", "config/gunicorn.conf.py", "wsgi:application"]
+# Corrected: Use the explicit wsgi.py entry point within the counter_service package
+CMD ["gunicorn", "--config", "config/gunicorn.conf.py", "counter_service.wsgi:application"]

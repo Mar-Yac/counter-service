@@ -56,6 +56,8 @@ def create_redis_client():
                 password = f.read().strip()
         except IOError as e:
             logging.getLogger().error(f"Could not read Redis password file: {e}")
+            # Re-raise the exception to indicate a critical failure in getting password
+            raise
     else:
         password = os.getenv('REDIS_PASSWORD') or None
 
@@ -79,29 +81,34 @@ def create_app():
     # Instrument Flask with OpenTelemetry
     FlaskInstrumentor().instrument_app(app)
     
+    redis_client = None
+    limiter_storage_uri = "memory://" # Fallback to in-memory storage
+    limiter_storage_options = {}
+
     try:
         redis_client = create_redis_client()
         redis_client.ping()
         RedisInstrumentor().instrument()
         otel_metrics["redis_status"].add(1)
         logger.info("Redis connection established")
+        
+        # If Redis connection is successful, configure Limiter to use Redis
+        limiter_storage_uri = f"redis://{redis_client.connection_pool.connection_kwargs.get('host')}:{redis_client.connection_pool.connection_kwargs.get('port')}"
+        limiter_storage_options = {"password": redis_client.connection_pool.connection_kwargs.get('password')}
+
     except Exception as e:
-        logger.error("Failed to connect to Redis", extra={"error": str(e)})
+        logger.error("Failed to connect to Redis, falling back to in-memory rate limiting", extra={"error": str(e)})
         otel_metrics["redis_status"].add(-1)
-        redis_client = None
+        # redis_client remains None, limiter will use memory storage
 
     # Initialize Rate Limiter
-    # The default_limits apply to all routes unless explicitly exempted or overridden.
     limiter = Limiter(
         get_remote_address,
         app=app,
-        storage_uri=f"redis://{redis_client.connection_pool.connection_kwargs.get('host')}:{redis_client.connection_pool.connection_kwargs.get('port')}",
-        storage_options={"password": redis_client.connection_pool.connection_kwargs.get('password')},
+        storage_uri=limiter_storage_uri,
+        storage_options=limiter_storage_options,
         default_limits=["100 per minute", "10 per second"]
     )
-
-    # The line `limiter.limit("100/minute;10/second")(app.router)` was incorrect and redundant.
-    # The default_limits already apply to all routes.
 
     @app.route('/', methods=['GET'])
     def get_counter():

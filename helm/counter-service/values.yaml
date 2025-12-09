@@ -62,9 +62,9 @@ redis:
   nameOverride: counter-redis
 
 redisConfig:
-  host: counter-redis-master
+  host: "counter-service-counter-redis-master"
   port: 6379
-  passwordFromFile: "/mnt/secrets/redis-password"
+  passwordFromFile: "/mnt/secrets/password"
   db: 0
 
 ingress:
@@ -81,7 +81,7 @@ pdb:
   minAvailable: 1
 
 topologySpreadConstraints:
-  enabled: true
+  enabled: false
   maxSkew: 1
   topologyKey: topology.kubernetes.io/zone
   whenUnsatisfiable: DoNotSchedule
